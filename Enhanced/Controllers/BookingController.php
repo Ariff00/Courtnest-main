@@ -32,11 +32,11 @@ class BookingController extends Controller
     public function store(Request $request)
     {
         $request->validate([
-            'court_id' => 'required|exists:courts,id',
-            'booking_date' => 'required|date|after_or_equal:today',
-            'start_time' => 'required',
-            'duration' => 'required|integer|min:1|max:3', 
-        ]);
+    'court_id' => 'required|integer|exists:courts,id',
+    'booking_date' => 'required|date|after_or_equal:today',
+    'start_time' => 'required|date_format:H:i:s',
+    'duration' => 'required|integer|min:1|max:3',
+]);
 
         $duration = (int)$request->duration;
         $newStart = Carbon::parse($request->start_time);
@@ -92,9 +92,13 @@ class BookingController extends Controller
         return view('bookings.checkout', compact('booking'));
     }
 
-    public function pay()
-    {
-        $data = session('pending_booking');
+        public function pay(Request $request)
+{
+    $request->validate([
+        'payment_method' => 'required|in:tng,maybank,card',
+    ]);
+
+    $data = session('pending_booking');
 
         if (!$data) {
             return redirect()->route('bookings.create')->withErrors(['error' => 'Payment session expired.']);
@@ -115,14 +119,16 @@ class BookingController extends Controller
         return redirect()->route('dashboard')->with('success', 'Payment Successful! Your court is secured.');
     }
 
-    public function cancel(Booking $booking)
-    {
-        if ($booking->user_id !== Auth::id()) {
-            abort(403);
-        }
+       public function cancel(Booking $booking)
+{
+    abort_if($booking->user_id !== Auth::id(), 403, 'Unauthorized action.');
 
-        $booking->update(['status' => 'cancelled']);
-
-        return back()->with('success', 'Booking has been cancelled.');
+    if ($booking->status === 'cancelled') {
+        return back()->withErrors(['error' => 'This booking is already cancelled.']);
     }
+
+    $booking->update(['status' => 'cancelled']);
+
+    return back()->with('success', 'Booking has been cancelled.');
+}
 }
